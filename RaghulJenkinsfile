@@ -1,0 +1,43 @@
+node {
+
+echo "Job name is : ${env.JOB_NAME}"
+echo "Build number is : ${env.BUILD_NUMBER}"
+echo "Node name is : ${env.NODE_NAME}"
+echo "Jenkins home directory is : ${env.JENKINS_HOME}"
+
+
+
+properties([authorizationMatrix(['USER:com.cloudbees.plugins.credentials.CredentialsProvider.Create:gowtham', 
+'USER:com.cloudbees.plugins.credentials.CredentialsProvider.Delete:gowtham', 'USER:com.cloudbees.plugins.credentials.CredentialsProvider.ManageDomains:gowtham', 
+'USER:com.cloudbees.plugins.credentials.CredentialsProvider.Update:gowtham', 'USER:com.cloudbees.plugins.credentials.CredentialsProvider.View:gowtham', 
+'USER:hudson.model.Item.Build:gowtham', 'USER:hudson.model.Item.Cancel:gowtham', 'USER:hudson.model.Item.Configure:gowtham', 
+'USER:hudson.model.Item.Delete:gowtham', 'USER:hudson.model.Item.Discover:gowtham', 'USER:hudson.model.Item.Move:gowtham', 'USER:hudson.model.Item.Read:gowtham', 
+'USER:hudson.model.Item.Workspace:gowtham', 'USER:hudson.model.Run.Delete:gowtham', 'USER:hudson.model.Run.Replay:gowtham', 'USER:hudson.model.Run.Update:gowtham', 
+'USER:hudson.plugins.jobConfigHistory.JobConfigHistory.DeleteEntry:gowtham', 'USER:hudson.scm.SCM.Tag:gowtham']), buildDiscarder(logRotator(artifactDaysToKeepStr: 
+'', artifactNumToKeepStr: '5', daysToKeepStr: '', numToKeepStr: '5')), [$class: 'JobLocalConfiguration', changeReasonComment: ''], pipelineTriggers([githubPush()])])
+
+def mavenHome= tool name: "Maven-3.8.7"
+
+stage('checkoutCode'){
+git branch: 'development', credentialsId: '04b8f510-ea53-4cf5-8f0d-d5b8a6239bcc', url: 'https://github.com/raghul-babu/maven-web-application.git'
+}
+
+stage('BuildMaven'){
+sh "${mavenHome}/bin/mvn clean package"
+}
+
+stage('sonarQubeReports'){
+sh "${mavenHome}/bin/mvn clean sonar:sonar"    
+}
+
+stage('uploadAtrifactstoNexus'){
+sh "${mavenHome}/bin/mvn clean deploy"   
+}
+
+stage('DeployAppIntoTomcatServer'){
+sshagent(['9a37c6ae-8fea-4c97-abca-7b6735a88880']) {
+sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@100.26.253.244:/opt/apache-tomcat-9.0.71/webapps"
+}    
+}
+
+}
